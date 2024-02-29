@@ -1,0 +1,174 @@
+[gd_scene load_steps=12 format=3 uid="uid://cakrqmo4dblmu"]
+
+[ext_resource type="PackedScene" uid="uid://dvwhpvq2ftbow" path="res://player.tscn" id="1_h3s4i"]
+[ext_resource type="PackedScene" uid="uid://c6eabhkv1gmho" path="res://mob.tscn" id="1_yw373"]
+[ext_resource type="FontFile" uid="uid://bk4864osp1g1o" path="res://fonts/Montserrat-Medium.ttf" id="3_1ovx0"]
+[ext_resource type="Script" path="res://ScoreLabel.gd" id="4_yg1py"]
+
+[sub_resource type="GDScript" id="GDScript_e4slx"]
+script/source = "extends Node
+
+@export var mob_scene: PackedScene
+
+func _ready():
+	$UserInterface/Retry.hide()
+
+
+func _on_mob_timer_timeout():
+	# Create a new instance of the Mob scene.
+	var mob = mob_scene.instantiate()
+	
+	# Choose a random location on the SpawnPath
+	# We store the refrence to the SpawnLocation node.
+	var mob_spawn_location = get_node(\"SpawnPath/SpawnLocation\")
+	# And give it a random offset.
+	mob_spawn_location.progress_ratio = randf()
+	
+	var player_position = $Player.position
+	mob.initialize(mob_spawn_location.position, player_position)
+	
+	# Spawn the mob by adding it to the Main scene.
+	add_child(mob)
+	
+	# We connect the mob to the score label to update the score upon squashing
+	# one
+	mob.squashed.connect($UserInterface/ScoreLabel._on_mob_squashed.bind())
+
+
+func _on_player_hit():
+	$MobTimer.stop()
+	$UserInterface/Retry.show()
+
+
+func _unhandled_input(event):
+	if event.is_action_pressed(\"ui_accept\") and $UserInterface/Retry.visible:
+		# This restarts the current scene
+		get_tree().reload_current_scene()
+"
+
+[sub_resource type="BoxShape3D" id="BoxShape3D_kv563"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="BoxMesh" id="BoxMesh_d4jny"]
+size = Vector3(60, 2, 60)
+
+[sub_resource type="StandardMaterial3D" id="StandardMaterial3D_exkrx"]
+albedo_color = Color(1, 0.611765, 0.105882, 1)
+
+[sub_resource type="CylinderMesh" id="CylinderMesh_lr44d"]
+material = SubResource("StandardMaterial3D_exkrx")
+
+[sub_resource type="Curve3D" id="Curve3D_a3jga"]
+_data = {
+"points": PackedVector3Array(0, 0, 0, 0, 0, 0, -11.9458, 0, -15.0044, 0, 0, 0, 0, 0, 0, 12.0613, 0, -15.0621, 0, 0, 0, 0, 0, 0, 12.0613, 0, 15.0044, 0, 0, 0, 0, 0, 0, -11.9458, 0, 14.9467, 0, 0, 0, 0, 0, 0, -11.9458, 0, -15.0044),
+"tilts": PackedFloat32Array(0, 0, 0, 0, 0)
+}
+point_count = 5
+
+[sub_resource type="Theme" id="Theme_e6jdx"]
+default_font = ExtResource("3_1ovx0")
+default_font_size = 22
+
+[node name="Main" type="Node"]
+script = SubResource("GDScript_e4slx")
+mob_scene = ExtResource("1_yw373")
+
+[node name="Ground" type="StaticBody3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, -1, 0)
+collision_layer = 4
+collision_mask = 0
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="Ground"]
+shape = SubResource("BoxShape3D_kv563")
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Ground"]
+mesh = SubResource("BoxMesh_d4jny")
+
+[node name="DirectionalLight3D" type="DirectionalLight3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, -0.720454, 0.693503, 0, -0.693503, -0.720454, 0, 11.2147, 0)
+shadow_enabled = true
+
+[node name="Player" parent="." instance=ExtResource("1_h3s4i")]
+
+[node name="CameraPivot" type="Marker3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 0.707107, 0.707107, 0, -0.707107, 0.707107, 0, 0, 0)
+
+[node name="Camera" type="Camera3D" parent="CameraPivot"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 19)
+projection = 1
+size = 19.0
+far = 100.0
+
+[node name="Cylinders" type="Node3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, -12, 0, -15)
+
+[node name="MeshInstance3D" type="MeshInstance3D" parent="Cylinders"]
+mesh = SubResource("CylinderMesh_lr44d")
+
+[node name="MeshInstance3D2" type="MeshInstance3D" parent="Cylinders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 0)
+mesh = SubResource("CylinderMesh_lr44d")
+
+[node name="MeshInstance3D3" type="MeshInstance3D" parent="Cylinders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0, 30)
+mesh = SubResource("CylinderMesh_lr44d")
+
+[node name="MeshInstance3D4" type="MeshInstance3D" parent="Cylinders"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 24, 0, 30)
+mesh = SubResource("CylinderMesh_lr44d")
+
+[node name="SpawnPath" type="Path3D" parent="."]
+curve = SubResource("Curve3D_a3jga")
+
+[node name="SpawnLocation" type="PathFollow3D" parent="SpawnPath"]
+transform = Transform3D(0.00240345, 0, -0.999997, 0, 1, 0, 0.999997, 0, 0.00240345, -11.9458, 0, -15.0044)
+
+[node name="MobTimer" type="Timer" parent="."]
+wait_time = 0.5
+autostart = true
+
+[node name="UserInterface" type="Control" parent="."]
+layout_mode = 3
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+theme = SubResource("Theme_e6jdx")
+
+[node name="ScoreLabel" type="Label" parent="UserInterface"]
+layout_mode = 0
+offset_left = 25.0
+offset_top = 25.0
+offset_right = 86.0
+offset_bottom = 51.0
+theme_override_colors/font_color = Color(0, 0, 0, 1)
+text = "Score: 0"
+script = ExtResource("4_yg1py")
+
+[node name="Retry" type="ColorRect" parent="UserInterface"]
+layout_mode = 1
+anchors_preset = 15
+anchor_right = 1.0
+anchor_bottom = 1.0
+grow_horizontal = 2
+grow_vertical = 2
+color = Color(0, 0, 0, 0.392157)
+
+[node name="Label" type="Label" parent="UserInterface/Retry"]
+layout_mode = 1
+anchors_preset = 8
+anchor_left = 0.5
+anchor_top = 0.5
+anchor_right = 0.5
+anchor_bottom = 0.5
+offset_left = -106.5
+offset_top = -15.5
+offset_right = 106.5
+offset_bottom = 15.5
+grow_horizontal = 2
+grow_vertical = 2
+text = "Press Enter to retry"
+
+[connection signal="hit" from="Player" to="." method="_on_player_hit"]
+[connection signal="timeout" from="MobTimer" to="." method="_on_mob_timer_timeout"]

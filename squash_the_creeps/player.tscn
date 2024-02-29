@@ -1,0 +1,188 @@
+[gd_scene load_steps=8 format=3 uid="uid://dvwhpvq2ftbow"]
+
+[ext_resource type="PackedScene" uid="uid://buqpve46o3vf8" path="res://art/player.glb" id="1_dx5af"]
+
+[sub_resource type="GDScript" id="GDScript_375jm"]
+script/source = "extends CharacterBody3D
+
+# Emitted when the player was hit by a mob.
+# Put this at the top of the script.
+signal hit
+# How fast the player moves in meters per second.
+@export var speed = 14
+# The downward acceleration when in the air, in meters per second squared.
+@export var fall_acceleration = 75
+# Vertical impulse applied to the character upon jumping in meters per second.
+@export var jump_impulse = 20
+# Vertical impulse applied to the character upon bouncing over a mob in meters
+# per second
+@export var bounce_impulse = 16
+
+var target_velocity = Vector3.ZERO
+
+func _physics_process(delta):
+	# We create a local variable to store the input direction.
+	var direction = Vector3.ZERO
+	
+	# We check for each move input and update the direction accordingly.
+	if Input.is_action_pressed(\"move_right\"):
+		direction.x += 1
+	if Input.is_action_pressed(\"move_left\"):
+		direction.x -= 1
+	if Input.is_action_pressed(\"move_back\"):
+		# In 3D, the XZ plane is the ground plane. Y is upward.
+		direction.z += 1
+	if Input.is_action_pressed(\"move_forward\"):
+		direction.z -= 1
+	
+	if direction != Vector3.ZERO:
+		direction = direction.normalized()
+		$Pivot.look_at(position + direction, Vector3.UP)
+		$AnimationPlayer.speed_scale = 4
+	else:
+		$AnimationPlayer.speed_scale = 1
+	
+	# Ground Velocity
+	target_velocity.x = direction.x * speed
+	target_velocity.z = direction.z * speed
+	
+	# Vertical Velocity
+	if not is_on_floor(): # If in the air, fall towards the floor. Gravity.
+		target_velocity.y = target_velocity.y - (fall_acceleration * delta)
+	
+	# Jumping.
+	if is_on_floor() and Input.is_action_pressed(\"jump\"):
+		target_velocity.y = jump_impulse
+	
+	# Iterate through all collisions that occured this frame
+	for index in range(get_slide_collision_count()):
+		# We get one of the collisons with the player
+		var collision = get_slide_collision(index)
+		
+		# If the collision is with the ground
+		if (collision.get_collider() == null):
+			continue
+		
+		# If the collision is with a mob
+		if collision.get_collider().is_in_group(\"mob\"):
+			var mob = collision.get_collider()
+			# we check that we are hitting it from above.
+			if Vector3.UP.dot(collision.get_normal()) > 0.1:
+				# If so, we squash it and bounce.
+				mob.squash()
+				target_velocity.y = bounce_impulse
+	
+	# Moving the Character
+	velocity = target_velocity
+	move_and_slide()
+	
+	$Pivot.rotation.x = PI / 6 * velocity.y / jump_impulse
+
+
+func die():
+	hit.emit()
+	queue_free()
+
+
+func _on_mob_detector_body_entered(body):
+	die()
+"
+
+[sub_resource type="SphereShape3D" id="SphereShape3D_vwlmd"]
+radius = 0.8
+
+[sub_resource type="CylinderShape3D" id="CylinderShape3D_yqubg"]
+height = 0.188608
+radius = 1.23328
+
+[sub_resource type="Animation" id="Animation_jeq24"]
+resource_name = "float"
+length = 1.2
+loop_mode = 1
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Pivot/Character:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0.2, 0.7, 1.2),
+"transitions": PackedFloat32Array(0.420448, 2.07053, 1),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(0, 0.65, 0), Vector3(0, 0.35, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Pivot/Character:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0.1, 0.5, 1.2),
+"transitions": PackedFloat32Array(0.420448, 0.450625, 1),
+"update": 0,
+"values": [Vector3(0, 0, 0), Vector3(0.139626, 0, 0), Vector3(-0.15708, 0, 0)]
+}
+
+[sub_resource type="Animation" id="Animation_7hoc3"]
+length = 0.001
+tracks/0/type = "value"
+tracks/0/imported = false
+tracks/0/enabled = true
+tracks/0/path = NodePath("Pivot/Character:position")
+tracks/0/interp = 1
+tracks/0/loop_wrap = true
+tracks/0/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 0, 0)]
+}
+tracks/1/type = "value"
+tracks/1/imported = false
+tracks/1/enabled = true
+tracks/1/path = NodePath("Pivot/Character:rotation")
+tracks/1/interp = 1
+tracks/1/loop_wrap = true
+tracks/1/keys = {
+"times": PackedFloat32Array(0),
+"transitions": PackedFloat32Array(1),
+"update": 0,
+"values": [Vector3(0, 0, 0)]
+}
+
+[sub_resource type="AnimationLibrary" id="AnimationLibrary_p2jtg"]
+_data = {
+"RESET": SubResource("Animation_7hoc3"),
+"float": SubResource("Animation_jeq24")
+}
+
+[node name="Player" type="CharacterBody3D"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.239977, 0)
+collision_mask = 6
+script = SubResource("GDScript_375jm")
+
+[node name="Pivot" type="Node3D" parent="."]
+
+[node name="Character" parent="Pivot" instance=ExtResource("1_dx5af")]
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="."]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.332126, 0)
+shape = SubResource("SphereShape3D_vwlmd")
+
+[node name="MobDetector" type="Area3D" parent="."]
+collision_layer = 0
+collision_mask = 2
+monitorable = false
+
+[node name="CollisionShape3D" type="CollisionShape3D" parent="MobDetector"]
+transform = Transform3D(1, 0, 0, 0, 1, 0, 0, 0, 1, 0, 0.0304092, 0)
+shape = SubResource("CylinderShape3D_yqubg")
+
+[node name="AnimationPlayer" type="AnimationPlayer" parent="."]
+autoplay = "float"
+libraries = {
+"": SubResource("AnimationLibrary_p2jtg")
+}
+
+[connection signal="body_entered" from="MobDetector" to="." method="_on_mob_detector_body_entered"]
